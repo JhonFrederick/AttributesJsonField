@@ -11,7 +11,7 @@ from django.forms import (
 class AttributesJSONWidget(MultiWidget):
     """ """
 
-    template_name = "widgets/attributesjsonwidget.html"
+    template_name = "attributesjsonfield/widgets/attributesjsonwidget.html"
 
     def __init__(self, attributes_json=None, attrs=None):
         self.attributes = attributes_json

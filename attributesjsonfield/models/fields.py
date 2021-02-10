@@ -37,6 +37,7 @@ class AttributesJSONField(JSONField):
                 required_attributes.append(field.replace("!", ""))
 
         self.required_attributes = required_attributes
+        self._check_attribute_validators()
         super().__init__(**kwargs)
 
     def deconstruct(self):
@@ -55,6 +56,33 @@ class AttributesJSONField(JSONField):
                 **kwargs,
             }
         )
+
+    def _check_attribute_validators(self):
+        attributes = self.attributes
+        errors = []
+        for attr in attributes:
+            if type(attr) == dict:
+                validators = attr.get("validators", None)
+                if validators:
+                    for i, validator in enumerate(validators):
+                        if not callable(validator):
+                            errors.append(
+                                "All 'validators' of the attribute '{attr}' of {obj} must be callable. validators[{i}] "
+                                "({repr}) isn't a function or instance of a validator class.".format(
+                                    attr=self.get_clean_attribute(attr),
+                                    obj=self,
+                                    i=i,
+                                    repr=repr(validator),
+                                )
+                            )
+        if errors:
+            raise exceptions.ValidationError(errors)
+
+    def _get_clean_attributes(self):
+        attributes = []
+        for attr in self.attributes:
+            attributes.append(self.get_clean_attribute(attr))
+        return attributes
 
     @classmethod
     def get_clean_attribute(cls, attribute):
@@ -83,12 +111,6 @@ class AttributesJSONField(JSONField):
         attributes = copy(self.attributes)
         return attributes
 
-    def _get_clean_attributes(self):
-        attributes = []
-        for attr in self.attributes:
-            attributes.append(self.get_clean_attribute(attr))
-        return attributes
-
     def get_attribute_choices(self, attribute):
         for attr in self.attributes:
             clean_attribute = self.get_clean_attribute(attr)
@@ -106,7 +128,8 @@ class AttributesJSONField(JSONField):
 
     def get_attribute_validators(self, attribute):
         for attr in self.attributes:
-            if type(attr) == dict and attr["field"] == attribute:
+            clean_attribute = self.get_clean_attribute(attr)
+            if type(attr) == dict and clean_attribute == attribute:
                 return attr.get("validators", None)
         return None
 
@@ -151,6 +174,22 @@ class AttributesJSONField(JSONField):
                     f"{missing_required_fields} are required fields for {self.name}"
                 )
 
+    def _run_attribute_validators(self, value, validators):
+        if value in self.empty_values:
+            return
+
+        errors = []
+        for v in validators:
+            try:
+                v(value)
+            except exceptions.ValidationError as e:
+                if hasattr(e, "code") and e.code in self.error_messages:
+                    e.message = self.error_messages[e.code]
+                errors.extend(e.error_list)
+
+        if errors:
+            raise exceptions.ValidationError(errors)
+
     def _validate_field_value(self, value):
         keys = list(value)
         attributes_to_validate = [key for key in keys]
@@ -163,8 +202,8 @@ class AttributesJSONField(JSONField):
 
             # Check attr validators
             attr_validators = self.get_attribute_validators(attr)
-            # if attr_validators is not None:
-            #     run_validators(attr_value, attr_validators, f"{self.field_name}/{attr}")
+            if attr_validators:
+                self._run_attribute_validators(attr_value, attr_validators)
 
             # Check that all sent fields have the proper option if they have choices in the definition
             attr_choices = self.get_attribute_choices(attr)
