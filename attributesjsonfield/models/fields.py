@@ -1,7 +1,12 @@
+import django
 import collections
 from copy import copy
 
-from django.contrib.postgres.fields import JSONField
+if django.VERSION >= (3, 1):
+    from django.db.models import JSONField
+else:
+    from django.contrib.postgres.fields import JSONField
+
 from django.core import exceptions
 from django.utils.translation import gettext_lazy as _
 

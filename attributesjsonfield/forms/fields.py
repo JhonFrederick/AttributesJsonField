@@ -1,3 +1,4 @@
+import django
 from django.forms import MultiValueField, CharField
 
 
@@ -45,9 +46,11 @@ class AttributesJSONField(MultiValueField):
             for attr in self.clean_attributes
         ]
         self.widget = AttributesJSONWidget(attributes_json=self.clean_attributes)
-        super().__init__(
-            *args, fields=fields, require_all_fields=require_all_fields, **kwargs
-        )
+        if django.VERSION >= (3, 1):
+            # MultiValueField does not receive as kwargs the encoder or decoder
+            kwargs.pop("encoder")
+            kwargs.pop("decoder")
+        super().__init__(fields=fields, require_all_fields=require_all_fields, **kwargs)
 
     def compress(self, data_list):
         if data_list:
