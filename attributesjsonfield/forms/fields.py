@@ -16,23 +16,23 @@ class AttributesJSONField(MultiValueField):
         self.clean_attributes = []
         if self.attributes:
             for attr in self.attributes:
-                field = attr["field"] if type(attr) == dict else attr
-                if type(attr) == dict:
+                is_dict = type(attr) == dict
+                field = attr["field"] if is_dict else attr
+                if is_dict:
                     label = attr.get("verbose_name", field)
+                    required = attr.get("required", True)
                 else:
-                    label = field.replace("!", "")
-                required = field.startswith("!")
+                    label = field
+                    required = True
                 self.clean_attributes.append(
                     {
                         "field": field,
                         "label": label,
-                        "name": field.replace("!", ""),
-                        "choices": attr.get("choices") if type(attr) == dict else None,
+                        "name": field,
+                        "choices": attr.get("choices") if is_dict else None,
                         "required": required,
-                        "default": attr.get("default") if type(attr) == dict else None,
-                        "data_type": attr.get("data_type")
-                        if type(attr) == dict
-                        else None,
+                        "default": attr.get("default") if is_dict else None,
+                        "data_type": attr.get("data_type") if is_dict else None,
                     }
                 )
         else:

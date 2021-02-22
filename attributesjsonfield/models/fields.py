@@ -30,7 +30,8 @@ class AttributesJSONField(JSONField):
         # All required attributes start with !, for example: !name, !area, !code
         required_attributes = []
         for attr in self.attributes:
-            if type(attr) == dict:
+            is_dict = type(attr) == dict
+            if is_dict:
                 assert (
                     "field" in attr
                 ), "If you are passing an attribute as dict you have to pass a 'field' key with the name definition"
@@ -38,8 +39,8 @@ class AttributesJSONField(JSONField):
             else:
                 field = attr
 
-            if str.startswith(field, "!"):
-                required_attributes.append(field.replace("!", ""))
+            if is_dict and attr.get("required", True):
+                required_attributes.append(field)
 
         self.required_attributes = required_attributes
         self._check_attribute_validators()
@@ -74,7 +75,7 @@ class AttributesJSONField(JSONField):
                             errors.append(
                                 "All 'validators' of the attribute '{attr}' of {obj} must be callable. validators[{i}] "
                                 "({repr}) isn't a function or instance of a validator class.".format(
-                                    attr=self.get_clean_attribute(attr),
+                                    attr=self.get_attribute(attr),
                                     obj=self,
                                     i=i,
                                     repr=repr(validator),
@@ -83,19 +84,9 @@ class AttributesJSONField(JSONField):
         if errors:
             raise exceptions.ValidationError(errors)
 
-    def _get_clean_attributes(self):
-        attributes = []
-        for attr in self.attributes:
-            attributes.append(self.get_clean_attribute(attr))
-        return attributes
-
     @classmethod
-    def get_clean_attribute(cls, attribute):
-        return (
-            attribute["field"].replace("!", "")
-            if type(attribute) == dict
-            else attribute.replace("!", "")
-        )
+    def get_attribute(cls, attribute):
+        return attribute["field"] if type(attribute) == dict else attribute
 
     @classmethod
     def _is_valid_option_of_the_choices(cls, option, choices):
@@ -109,7 +100,7 @@ class AttributesJSONField(JSONField):
     def get_attributes(self):
         attributes = []
         for attr in self.attributes:
-            attributes.append(attr["field"] if type(attr) == dict else attr)
+            attributes.append(self.get_attribute(attr))
         return attributes
 
     def get_full_attributes(self):
@@ -118,32 +109,26 @@ class AttributesJSONField(JSONField):
 
     def get_attribute_choices(self, attribute):
         for attr in self.attributes:
-            clean_attribute = self.get_clean_attribute(attr)
-            if type(attr) == dict and clean_attribute == attribute:
+            if type(attr) == dict and attr["field"] == attribute:
                 return attr.get("choices", None)
         return None
 
     def get_attribute_verbose_name(self, attribute):
         attributes = self.get_full_attributes()
         for attr in attributes:
-            clean_attribute = self.get_clean_attribute(attr)
-            if type(attr) == dict and clean_attribute == attribute:
+            if type(attr) == dict and attr["field"] == attribute:
                 return attr.get("verbose_name", attribute)
         return attribute
 
     def get_attribute_validators(self, attribute):
         for attr in self.attributes:
-            clean_attribute = self.get_clean_attribute(attr)
-            if type(attr) == dict and clean_attribute == attribute:
+            if type(attr) == dict and attr["field"] == attribute:
                 return attr.get("validators", None)
         return None
 
     def get_attribute_default(self, attribute):
         for attr in self.attributes:
-            if (
-                type(attr) == dict
-                and self.get_clean_attribute(attr["field"]) == attribute
-            ):
+            if type(attr) == dict and attr["field"] == attribute:
                 return attr.get("default", None)
         return None
 
@@ -162,9 +147,7 @@ class AttributesJSONField(JSONField):
             )
 
         # Check that no extra field other than the ones defined in self.attributes are stored in the field
-        defined_cleaned_attributes = {
-            attr.replace("!", "") for attr in defined_attributes
-        }
+        defined_cleaned_attributes = {attr for attr in defined_attributes}
         unsupported_attributes = set(keys) - set(defined_cleaned_attributes)
         if unsupported_attributes:
             raise exceptions.ValidationError(
