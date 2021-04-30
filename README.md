@@ -1,4 +1,4 @@
-# Django AttributesJsonFiel
+# Django AttributesJsonField
 [![Any color you like](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
 
 Django package that extends the **JsonField** limiting possible keys of the Json.
