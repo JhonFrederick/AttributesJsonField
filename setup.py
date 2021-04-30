@@ -6,6 +6,7 @@ setuptools.setup(
     download_url="https://github.com/JhonFrederick/django-attributesjsonfield",
     license="MIT",
     author="",
+    version="0.0.1",
     author_email="",
     keywords="Django JsonField AttributesJSONField",
     description="Additional features for Django JSONField",
